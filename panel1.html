@@ -1,1 +1,315 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IoT Car Control Panel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --brand-light:#38BDF8; --brand-lav:#C084FC; --brand-purple:#8B5CF6; --brand-navy:#312E81;
+      --ok:#10B981; --warn:#F59E0B; --bad:#EF4444;
+    }
+    body{ background: var(--bs-body-bg); }
+    .app-header{ border-radius:20px; padding:10px 12px;
+      background: color-mix(in oklab, var(--bs-body-bg) 70%, var(--bs-body-color) 10%);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .sidebar{ border-radius:20px; background: color-mix(in oklab, var(--bs-body-bg) 80%, var(--bs-body-color) 10%); padding:12px; }
+    .panel-card{ border-radius:20px; background: color-mix(in oklab, var(--bs-body-bg) 86%, var(--bs-body-color) 8%);
+      border:1px solid color-mix(in oklab, var(--bs-body-color) 15%, transparent); }
+    .panel-card .card-header{ border:0; background:transparent; text-align:center; font-weight:700; font-size:1.15rem; padding-top:10px; }
 
+    .segmented{ display:grid; grid-template-columns: repeat(3,1fr); gap:8px; }
+    .segmented .btn{ border-radius:12px; font-weight:600; padding:8px 6px;
+      border:1px solid color-mix(in oklab, var(--bs-body-color) 20%, transparent);
+      background: color-mix(in oklab, var(--bs-body-bg) 85%, var(--bs-body-color) 8%); color:var(--bs-body-color); }
+    .segmented .btn.active{ outline:2px solid var(--brand-light);
+      background: color-mix(in oklab, var(--bs-body-bg) 75%, var(--brand-light) 18%); }
+
+    .camera-box{ border-radius:16px; height:200px; position:relative; overflow:hidden;
+      background: linear-gradient(135deg, color-mix(in oklab, var(--bs-body-bg) 50%, black), color-mix(in oklab, var(--bs-body-bg) 92%, black));
+    }
+    .camera-toolbar{ position:absolute; left:12px; right:12px; top:10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .pill{ display:flex; gap:8px; align-items:center; border-radius:999px; padding:6px 10px;
+      background: color-mix(in oklab, var(--bs-body-bg) 70%, var(--bs-body-color) 10%);
+      font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.85rem; }
+    .rec-dot{ width:9px; height:9px; border-radius:50%; background:var(--bad) }
+
+    .joy-wrap{ display:flex; align-items:center; justify-content:center; position:relative; height:200px }
+    .joy-base{ width: 180px; height:180px; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--brand-purple) 30%, transparent) 0%, transparent 60%);
+      border: 2px solid var(--brand-purple); position:relative; }
+    .joy-cross::before, .joy-cross::after{ content:""; position:absolute; left:50%; top:0; width:2px; height:100%;
+      background: color-mix(in oklab, var(--brand-purple) 45%, transparent); transform:translateX(-50%); }
+    .joy-cross::after{ top:50%; left:0; width:100%; height:2px; transform:none; }
+    .joy-thumb{ width:44px; height:44px; border-radius:50%; position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%); background: color-mix(in oklab, var(--bs-body-bg) 60%, var(--bs-body-color) 20%);
+      border:3px solid var(--brand-purple); box-shadow:0 8px 18px rgba(0,0,0,.25); cursor:grab; touch-action:none; user-select:none; }
+    .speed-ring{ width:110px; height:110px; border-radius:50%; border:10px solid color-mix(in oklab, var(--bs-body-color) 15%, transparent);
+      display:flex; align-items:center; justify-content:center; font-weight:700; margin:auto; }
+    .speed-ring[data-speed]::after{ content: attr(data-speed) "%"; font-size:1rem; }
+
+    .btn-stop{ border-radius:14px; border:2px solid var(--bad); font-weight:700; background:transparent; }
+    .btn-stop:hover{ background: color-mix(in oklab, var(--bad) 25%, transparent) }
+
+    .gauge{ width:110px; height:110px }
+    .gauge circle.track{ stroke: color-mix(in oklab, var(--bs-body-color) 20%, transparent); stroke-width:12; fill:none }
+    .gauge circle.value{ stroke: var(--brand-light); stroke-width:12; fill:none; stroke-linecap:round; transform: rotate(-90deg); transform-origin:50% 50% }
+    .chip{ border-radius:12px; padding:8px 12px; border:1px solid color-mix(in oklab, var(--bs-body-color) 20%, transparent) }
+
+    /* Desktop sidebar buttons */
+    @media (min-width:992px){
+      .sidebar .btn{ width:100%; text-align:left; border-radius:12px; margin-bottom:8px;
+        border:1px solid color-mix(in oklab, var(--bs-body-color) 20%, transparent);
+        background: color-mix(in oklab, var(--bs-body-bg) 85%, var(--bs-body-color) 10%); }
+      .sidebar .btn.active{ outline:2px solid var(--brand-purple);
+        background: color-mix(in oklab, var(--bs-body-bg) 75%, var(--brand-purple) 15%); }
+    }
+
+    /* --- Mobile specific tuning (<576px) --- */
+    @media (max-width: 576px){
+      .app-header{ flex-direction:column; align-items:stretch; padding:8px 10px; }
+      .app-header > div:first-child{ font-size:1rem; justify-content:center; display:flex; }
+      .app-header #clock{ align-self:center }
+      .panel-card .card-header{ font-size:1.05rem; }
+      .camera-box{ height:180px }
+      .joy-wrap{ height:180px }
+      .joy-base{ width:160px; height:160px }
+      .joy-thumb{ width:40px; height:40px }
+      .speed-ring{ width:96px; height:96px; border-width:9px }
+      .ptz-grid .btn{ padding:.35rem .5rem; font-size:1rem }
+      .chip{ padding:6px 10px; }
+      pre.mono{ font-size:.8rem }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-xxl py-3">
+    <div class="app-header mb-3">
+      <div class="d-flex align-items-center gap-2"><strong>IoT Car Control Panel</strong><span class="badge text-bg-info">v1.1</span></div>
+      <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
+        <div class="chip" id="clock" aria-live="polite">--:--:-- | --/--/----</div>
+        <div class="form-check form-switch m-0">
+          <input class="form-check-input" type="checkbox" id="themeToggle" aria-label="Toggle theme">
+          <label class="form-check-label" for="themeToggle">Light</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <aside class="col-lg-2 d-none d-lg-block">
+        <div class="sidebar">
+          <button class="btn active" data-mode="image">🖼 Image</button>
+          <button class="btn" data-mode="sensor">🧭 Sensor</button>
+          <button class="btn" data-mode="manual">🎮 Manual</button>
+        </div>
+      </aside>
+
+      <main class="col-12 col-lg-10">
+        <!-- Phone segmented tabs -->
+        <div class="d-lg-none mb-2">
+          <div class="card panel-card p-2">
+            <div class="segmented" role="tablist" aria-label="Modes">
+              <button class="btn active" data-mode="image" role="tab" aria-selected="true">Image</button>
+              <button class="btn" data-mode="sensor" role="tab" aria-selected="false">Sensor</button>
+              <button class="btn" data-mode="manual" role="tab" aria-selected="false">Manual</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <!-- Camera -->
+          <section class="col-12 col-xl-8">
+            <div class="card panel-card">
+              <div class="card-header">Camera — Live Stream</div>
+              <div class="card-body pt-2">
+                <div class="camera-box" role="img" aria-label="Live camera stream placeholder">
+                  <div class="camera-toolbar">
+                    <div class="pill">📷 Camera</div>
+                    <div class="pill"><span class="rec-dot"></span> <span>REC • 1080p/30</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- PTZ -->
+          <section class="col-12 col-xl-4">
+            <div class="card panel-card h-100">
+              <div class="card-header">Camera PTZ</div>
+              <div class="card-body d-flex flex-column align-items-center justify-content-center gap-3">
+                <div class="d-grid ptz-grid" style="grid-template-columns:44px 44px 44px; gap:10px;">
+                  <span></span>
+                  <button class="btn btn-outline-secondary p-2" id="ptzUp" aria-label="PTZ Up">▲</button>
+                  <span></span>
+                  <button class="btn btn-outline-secondary p-2" id="ptzLeft" aria-label="PTZ Left">◀</button>
+                  <button class="btn btn-outline-secondary p-2" id="ptzCenter" aria-label="PTZ Center">•</button>
+                  <button class="btn btn-outline-secondary p-2" id="ptzRight" aria-label="PTZ Right">▶</button>
+                  <span></span>
+                  <button class="btn btn-outline-secondary p-2" id="ptzDown" aria-label="PTZ Down">▼</button>
+                  <span></span>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary px-3" id="zoomIn" aria-label="Zoom In">＋</button>
+                  <button class="btn btn-outline-primary px-3" id="zoomOut" aria-label="Zoom Out">－</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Movement -->
+          <section class="col-12 col-xl-8">
+            <div class="card panel-card">
+              <div class="card-header">Movement</div>
+              <div class="card-body">
+                <div class="row g-3 align-items-center text-center">
+                  <div class="col-12 col-md-4"><div class="speed-ring" id="speedRing" data-speed="0"></div></div>
+                  <div class="col-12 col-md-8 d-flex justify-content-center">
+                    <div class="joy-wrap">
+                      <div class="joy-base joy-cross" id="joyBase" aria-label="Virtual Joystick">
+                        <div class="joy-thumb" id="joyThumb" role="slider" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-center mt-2">
+                  <button class="btn btn-stop px-4" id="btnStop"><span class="me-2">⛔</span>STOP</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Status -->
+          <section class="col-12 col-xl-4">
+            <div class="card panel-card h-100">
+              <div class="card-header">Status</div>
+              <div class="card-body d-flex flex-column justify-content-center">
+                <div class="d-flex align-items-center gap-3 justify-content-center mb-3 flex-wrap">
+                  <svg class="gauge" viewBox="0 0 100 100" role="img" aria-label="Battery level">
+                    <circle class="track" cx="50" cy="50" r="42"></circle>
+                    <circle class="value" cx="50" cy="50" r="42" stroke-dasharray="0 264" id="batteryArc"></circle>
+                  </svg>
+                  <div class="d-flex flex-column align-items-center">
+                    <div class="chip d-flex align-items-center gap-2"><span>🔋</span><span id="batteryText">78%</span></div>
+                    <div class="chip mt-2">Link: <span id="linkText">WiFi</span></div>
+                  </div>
+                </div>
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                  <div class="chip d-flex align-items-center gap-2"><span class="badge rounded-circle" style="background:var(--ok);">&nbsp;</span>IR Left</div>
+                  <div class="chip d-flex align-items-center gap-2"><span class="badge rounded-circle" style="background:var(--warn);">&nbsp;</span>IR Center</div>
+                  <div class="chip d-flex align-items-center gap-2"><span class="badge rounded-circle" style="background:var(--ok);">&nbsp;</span>IR Right</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Logs -->
+          <section class="col-12">
+            <div class="card panel-card">
+              <div class="card-header">Logs</div>
+              <div class="card-body"><pre class="m-0 mono" id="logBox" style="max-height:200px; overflow:auto;">[start] ready.</pre></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // تابع برای ارسال درخواست به سرور Flask با FormData
+    async function sendCommand(endpoint, data = {}) {
+      try {
+        const formData = new FormData();
+        
+        // اضافه کردن تمام فیلدهای داده به FormData
+        for (const [key, value] of Object.entries(data)) {
+          formData.append(key, value);
+        }
+        
+        const response = await fetch(`/${endpoint}`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const result = await response.text();
+        log(`[server] ${endpoint}: ${result}`);
+        return result;
+      } catch (error) {
+        log(`[error] Failed to send ${endpoint}: ${error.message}`);
+      }
+    }
+
+    const rootHtml=document.documentElement, themeToggle=document.getElementById('themeToggle');
+    themeToggle.addEventListener('change',()=>rootHtml.setAttribute('data-bs-theme',themeToggle.checked?'light':'dark'));
+
+    const clock=document.getElementById('clock');
+    function tick(){const d=new Date(),p=n=>String(n).padStart(2,'0');clock.textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} | ${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+    setInterval(tick,1000); tick();
+
+    document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll(`[data-mode="${btn.dataset.mode}"]`).forEach(b=>b.classList.add('active'));
+      log(`[mode] ${btn.dataset.mode}`);
+      sendCommand('mode', { mode: btn.dataset.mode });
+    }));
+
+    const base=document.getElementById('joyBase'), thumb=document.getElementById('joyThumb'), speedRing=document.getElementById('speedRing');
+    let dragging=false, center={x:0,y:0}, radius=0;
+    function setupJoy(){const r=base.getBoundingClientRect();center={x:r.left+r.width/2,y:r.top+r.height/2};radius=r.width/2-6;}
+    window.addEventListener('resize',setupJoy); setupJoy();
+    
+    function handleMove(x,y){
+      const dx=x-center.x,dy=y-center.y,dist=Math.min(Math.hypot(dx,dy),radius),a=Math.atan2(dy,dx);
+      const px=Math.cos(a)*dist, py=Math.sin(a)*dist; 
+      thumb.style.transform=`translate(${px}px, ${py}px)`;
+      const nx=(px/radius).toFixed(2), ny=(py/radius).toFixed(2), sp=Math.round((dist/radius)*100); 
+      speedRing.dataset.speed=sp;
+      
+      // ارسال داده جوی‌استیک به سرور با FormData
+      sendCommand('joystick', { vx: nx, vy: ny, speed: sp });
+      log(`[joy] vx=${nx} vy=${ny} speed=${sp}%`);
+    }
+    
+    thumb.addEventListener('pointerdown',e=>{dragging=true; thumb.setPointerCapture(e.pointerId);});
+    window.addEventListener('pointermove',e=>{if(dragging) handleMove(e.clientX,e.clientY);});
+    window.addEventListener('pointerup',()=>{
+      if(!dragging)return; 
+      dragging=false; 
+      thumb.style.transform='translate(-50%, -50%)'; 
+      speedRing.dataset.speed=0; 
+      
+      // ارسال وضعیت توقف به سرور
+      sendCommand('joystick', { vx: '0', vy: '0', speed: '0' });
+      log('[joy] released');
+    });
+
+    const ptz=dir=>{
+      log(`[ptz] ${dir}`); 
+      sendCommand('ptz', { direction: dir });
+    };
+    
+    ['Up','Down','Left','Right','Center'].forEach(k=>document.getElementById('ptz'+k).onclick=()=>ptz(k.toLowerCase()));
+    document.getElementById('zoomIn').onclick=()=>ptz('zoom_in'); 
+    document.getElementById('zoomOut').onclick=()=>ptz('zoom_out');
+
+    document.getElementById('btnStop').onclick=()=>{
+      log('[stop] EMERGENCY STOP'); 
+      sendCommand('emergency_stop', {});
+    };
+
+    function setBattery(p){p=Math.max(0,Math.min(100,p)); const circ=2*Math.PI*42, dash=(p/100)*circ;
+      document.getElementById('batteryArc').setAttribute('stroke-dasharray',`${dash} ${circ-dash}`);
+      document.getElementById('batteryText').textContent=`${p}%`; } setBattery(78);
+
+    const logBox=document.getElementById('logBox'); 
+    function log(m){const ts=new Date().toLocaleTimeString(); logBox.textContent+=`\n[${ts}] ${m}`; logBox.scrollTop=logBox.scrollHeight; }
+  </script>
+</body>
+</html>
